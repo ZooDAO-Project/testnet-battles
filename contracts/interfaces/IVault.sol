@@ -6,8 +6,6 @@ pragma experimental ABIEncoderV2;
 interface VaultAPI {
 	function deposit(uint256 amount) external returns (uint256);
 
-	// function withdraw(uint256 maxShares) external returns (uint256);
-
 	function withdraw(uint256 maxShares, address recipient) external returns (uint256);
 
 	function pricePerShare() external view returns (uint256);

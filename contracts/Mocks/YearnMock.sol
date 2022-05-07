@@ -5,9 +5,8 @@ pragma solidity ^0.7.5;
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "../interfaces/IVault.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract YearnMock is ERC20, VaultAPI, Ownable {
+contract YearnMock is ERC20, VaultAPI {
 
 	using SafeMath for uint256;
 
@@ -36,7 +35,7 @@ contract YearnMock is ERC20, VaultAPI, Ownable {
 		}
 		else
 		{
-			return dai.balanceOf(address(this)).mul(10**uint256(decimals())).div(totalSupply());
+				return dai.balanceOf(address(this)).mul(10**18).div(totalSupply());
 		}
 	}
 

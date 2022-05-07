@@ -66,6 +66,7 @@ contract NftBattleArena is Ownable, ERC721
 		uint256 endDate;
 		uint256 endEpoch;                                            // Epoch when ended to stake.
 		uint256 lastRewardedEpoch;                                   // Epoch when last reward claimed.
+		uint256 lastUpdateEpoch;
 		mapping (uint256 => BattleReward) rewards;                   // Records to struct BattleReward.
 	}
 
@@ -101,10 +102,10 @@ contract NftBattleArena is Ownable, ERC721
 	event newContractAllowed (address indexed token, uint256 indexed currentEpoch);
 
 	/// @notice Event records info about staked nft in this pool.
-	event StakedNft(address indexed staker, address indexed token, uint256 id, uint256 indexed positionId, uint256 currentEpoch);
+	event StakedNft(address indexed staker, address token, uint256 id, uint256 indexed positionId, uint256 indexed currentEpoch);
 
 	/// @notice Event records info about withdrawed nft from this pool.
-	event UnstakedNft(address indexed staker, address indexed token, uint256 id, uint256 indexed positionId, uint256 currentEpoch);
+	event UnstakedNft(address indexed staker, address token, uint256 id, uint256 indexed positionId, uint256 indexed currentEpoch);
 
 	/// @notice Event records info about created voting position.
 	event CreatedVotingPosition(address indexed voter, uint256 indexed stakingPositionId, uint256 daiAmount, uint256 votes, uint256 indexed voterPositionId, uint256 currentEpoch);
@@ -125,7 +126,7 @@ contract NftBattleArena is Ownable, ERC721
 	event AddedZoo(address indexed voter, uint256 indexed votingPositionId, uint256 indexed stakingPositionId, uint256 amount, uint256 votes, uint256 currentEpoch);
 
 	/// @notice Event records info about paired nfts.
-	event NftPaired(uint256 indexed fighter1, uint256 indexed fighter2, uint256 pairIndex, uint256 currentEpoch);
+	event NftPaired(uint256 indexed fighter1, uint256 indexed fighter2, uint256 pairIndex, uint256 indexed currentEpoch);
 
 	/// @notice Event records info about winners in battles.
 	event ChosenWinner(uint256 indexed fighter1, uint256 indexed fighter2, bool winner, uint256 indexed pairIndex, uint256 random, uint256 playedPairsAmount, uint256 currentEpoch);
@@ -146,11 +147,11 @@ contract NftBattleArena is Ownable, ERC721
 	uint256 public epochStartDate;                                                 // Start date of battle epoch.
 	uint256 public currentEpoch = 1;                                               // Counter for battle epochs.
 
-	uint256 public firstStageDuration = 1 days;      	//todo:change time //3 days;    // Duration of first stage(stake).
-	uint256 public secondStageDuration = 1 days;      	//todo:change time //7 days;    // Duration of second stage(DAI)'.
-	uint256 public thirdStageDuration = 1 days;       	//todo:change time //2 days;    // Duration of third stage(Pair).
-	uint256 public fourthStageDuration = 1 days;       	//todo:change time //5 days;    // Duration fourth stage(ZOO).
-	uint256 public fifthStageDuration = 1 days;        	//todo:change time //2 days;    // Duration of fifth stage(Winner).
+	uint256 public firstStageDuration = 20 minutes;// hours;        //todo:change time //3 days;    // Duration of first stage(stake).
+	uint256 public secondStageDuration = 20 minutes;// hours;       //todo:change time //7 days;    // Duration of second stage(DAI)'.
+	uint256 public thirdStageDuration = 20 minutes;// hours;        //todo:change time //2 days;    // Duration of third stage(Pair).
+	uint256 public fourthStageDuration = 20 minutes;// hours;       //todo:change time //5 days;    // Duration fourth stage(ZOO).
+	uint256 public fifthStageDuration = 20 minutes;// hours;        //todo:change time //2 days;    // Duration of fifth stage(Winner).
 	uint256 public epochDuration = firstStageDuration + secondStageDuration + thirdStageDuration + fourthStageDuration + fifthStageDuration; // Total duration of battle epoch.
 
 	uint256[] public stakerPositions;                                              // Array of ZooBattle nfts, which are stakerPositions.
@@ -209,17 +210,17 @@ contract NftBattleArena is Ownable, ERC721
 		team = _teamAddress;
 
 		battlesStartDate = block.timestamp;
-		epochStartDate = block.timestamp + 9 days;	//todo:change time for prod + n days; // Start date of 1st battle.
+		epochStartDate = block.timestamp;	//todo:change time for prod + n days; // Start date of 1st battle.
 	}
 
-	/// @notice Function to add time to current start date.
-	/// @notice delays start for input amount.
-	/// @notice for testnet purposes only.
-	/// @param time - amount of time in seconds.
-	function delayStart(uint256 time) external onlyOwner
-	{
-		epochStartDate += time;
-	}
+	// /// @notice Function to add time to current start date.
+	// /// @notice delays start for input amount.
+	// /// @notice for testnet purposes only.
+	// /// @param time - amount of time in seconds.
+	// function delayStart(uint256 time) external onlyOwner
+	// {
+	// 	epochStartDate += time;
+	// }
 
 	/// @notice Function to set start date of battles.
 	/// @notice Sets start date to inpute date.
@@ -323,8 +324,19 @@ contract NftBattleArena is Ownable, ERC721
 		{
 			if (stakerPositions[i] == stakingPositionId)
 			{
-				stakerPositions[i] = stakerPositions[stakerPositions.length - 1];
+				if (i < numberOfNftsWithNonZeroVotes)
+				{
+					stakerPositions[i] = stakerPositions[numberOfNftsWithNonZeroVotes - 1];
+					stakerPositions[numberOfNftsWithNonZeroVotes - 1] = stakerPositions[stakerPositions.length - 1];
+					numberOfNftsWithNonZeroVotes = numberOfNftsWithNonZeroVotes.sub(1);
+				}
+				else
+				{
+					stakerPositions[i] = stakerPositions[stakerPositions.length - 1];
+				}
+
 				stakerPositions.pop();                                              // Removes staker position from array.
+
 				break;
 			}
 		}
@@ -405,7 +417,7 @@ contract NftBattleArena is Ownable, ERC721
 
 		if (stakingPositions[stakingPositionId].rewards[currentEpoch].votes == 0)   // If staker position had zero votes before,
 		{
-			for(uint i = 0; i < stakerPositions.length; i++)
+			for(uint256 i = 0; i < stakerPositions.length; i++)
 			{
 				if (stakerPositions[i] == stakingPositionId) 
 				{
@@ -430,7 +442,7 @@ contract NftBattleArena is Ownable, ERC721
 	function pairNft(uint256 stakingPositionId) external
 	{
 		require(getCurrentStage() == Stage.ThirdStage, "Wrong stage!");                     // Requires to be at 3 stage of battle epoch.
-		require(numberOfNftsWithNonZeroVotes / 2 > nftsInGame / 2, "incorrect id");         // Requires enough nft for pairing.
+		require(numberOfNftsWithNonZeroVotes / 2 > nftsInGame / 2, "err1");         // Requires enough nft for pairing.
 		uint256 index1;                                                                     // Index of nft paired for.
 		uint256 i;
 
@@ -443,12 +455,13 @@ contract NftBattleArena is Ownable, ERC721
 			}
 		}
 
-		require(i != numberOfNftsWithNonZeroVotes);
+		require(i != numberOfNftsWithNonZeroVotes); // Position not found in list of voted for and not paired.
 
 		(stakerPositions[index1], stakerPositions[nftsInGame]) = (stakerPositions[nftsInGame], stakerPositions[index1]);// Swaps nftsInGame with index.
 		nftsInGame++;                                                               // Increases amount of paired nft.
 
-		uint256 random = uint256(keccak256(abi.encodePacked(uint256(blockhash(block.number - 1))))) % (numberOfNftsWithNonZeroVotes - nftsInGame);                         // Get random number.
+		uint256 random = uint256(keccak256(abi.encodePacked(uint256(blockhash(block.number - 1))))) % (numberOfNftsWithNonZeroVotes.sub(nftsInGame));                         // Get random number.
+
 		uint256 index2 = random + nftsInGame;                                       // Get index of opponent.
 
 		uint256 pairIndex = getNftPairLength(currentEpoch);
@@ -485,10 +498,10 @@ contract NftBattleArena is Ownable, ERC721
 
 		zoo.transferFrom(msg.sender, address(this), amount);                        // Transfers Zoo from sender to this contract.
 
-		votingPositions[votingPositionId].votes += votes;                           // Adds votes to total votes for this voting position.
-		votingPositions[votingPositionId].zooInvested += amount;                    // Adds amount of zoo invested for this voting position.
-
 		votes = zooFunctions.computeVotesByZoo(amount);                             // Calculates amount of votes from multiplier.
+
+		votingPositions[votingPositionId].zooInvested += amount;                    // Adds amount of zoo invested for this voting position.
+		votingPositions[votingPositionId].votes += votes;                           // Adds votes to total votes for this voting position.
 		stakingPositions[stakingPositionId].rewards[currentEpoch].votes += votes;   // Adds votes for this epoch, token and id.
 
 		emit VotedWithZoo(msg.sender, stakingPositionId, votingPositionId, amount, currentEpoch); // Emits VotedWithZoo event.
@@ -496,17 +509,25 @@ contract NftBattleArena is Ownable, ERC721
 		return votes;
 	}
 
+	bool public randomRequested; // Uses to request random only once per epoch.
+
+	/// @notice Function to request random once per epoch.
+	function requestRandom() public
+	{
+		require(getCurrentStage() == Stage.FifthStage, "Wrong stage!");             // Requires to be at 5th stage.
+		require(randomRequested == false, "err1");                     // Requires to call once per epoch.
+
+		zooFunctions.getRandomNumber();                                             // call random for randomResult from chainlink or blockhash.
+		randomRequested = true;
+	}
+
 	/// @notice Function for chosing winner for exact pair of nft.
 	/// @param pairIndex - index of nft pair.
 	function chooseWinnerInPair(uint256 pairIndex) public
 	{
 		require(getCurrentStage() == Stage.FifthStage, "Wrong stage!");             // Requires to be at 5th stage.
-
-		if (numberOfPlayedPairsInEpoch[currentEpoch] == 0)
-		{
-			zooFunctions.getRandomNumber();
-		}
-		uint256 random = zooFunctions.randomResult();
+		require(zooFunctions.randomResult() != 0, "err1");                          // Reverts until new random generated.
+		uint256 battleRandom = zooFunctions.randomResult();                                 // Gets random number from zooFunctions.
 
 		uint256 token1 = pairsInEpoch[currentEpoch][pairIndex].token1;              // Get id of 1st candidate.
 		updateInfo(token1);
@@ -516,7 +537,7 @@ contract NftBattleArena is Ownable, ERC721
 		updateInfo(token2);
 		uint256 votesForB = stakingPositions[token2].rewards[currentEpoch].votes;   // Get votes for 2nd candidate.
 
-		pairsInEpoch[currentEpoch][pairIndex].win = zooFunctions.decideWins(votesForA, votesForB, random);   // Calculates winner and records it.
+		pairsInEpoch[currentEpoch][pairIndex].win = zooFunctions.decideWins(votesForA, votesForB, battleRandom);   // Calculates winner and records it.
 
 		uint256 tokensAtBattleEnd1 = sharesToTokens(stakingPositions[token1].rewards[currentEpoch].yTokens); // Amount of yTokens for token1 staking Nft position.
 		uint256 tokensAtBattleEnd2 = sharesToTokens(stakingPositions[token2].rewards[currentEpoch].yTokens); // Amount of yTokens for token2 staking Nft position.
@@ -557,7 +578,7 @@ contract NftBattleArena is Ownable, ERC721
 		numberOfPlayedPairsInEpoch[currentEpoch]++;                                 // Increments amount of pairs played this epoch.
 		pairsInEpoch[currentEpoch][pairIndex].playedInEpoch = true;                 // Records that this pair already played this epoch.
 
-		emit ChosenWinner(token1, token2, pairsInEpoch[currentEpoch][pairIndex].win, pairIndex, random, numberOfPlayedPairsInEpoch[currentEpoch], currentEpoch); // Emits ChosenWinner event.
+		emit ChosenWinner(token1, token2, pairsInEpoch[currentEpoch][pairIndex].win, pairIndex, battleRandom, numberOfPlayedPairsInEpoch[currentEpoch], currentEpoch); // Emits ChosenWinner event.
 
 		if (numberOfPlayedPairsInEpoch[currentEpoch] == pairsInEpoch[currentEpoch].length)
 		{
@@ -566,8 +587,11 @@ contract NftBattleArena is Ownable, ERC721
 	}
 
 	/// @dev Function for updating position in case of battle didn't happen after pairing.
-	function updateInfo(uint256 stakingPositionId) internal returns (uint256)
+	function updateInfo(uint256 stakingPositionId) public
 	{
+		if (stakingPositions[stakingPositionId].lastUpdateEpoch == currentEpoch)
+			return;
+
 		uint256 end = stakingPositions[stakingPositionId].startEpoch;
 		bool votesHasUpdated = false;
 		bool yTokensHasUpdated = false;
@@ -604,6 +628,9 @@ contract NftBattleArena is Ownable, ERC721
 		currentEpoch++;                                                             // Increments currentEpoch.
 		nftsInGame = 0;                                                             // Nullifies amount of paired nfts.
 
+		zooFunctions.resetRandom();     // Resets random in zoo functions.
+		randomRequested = false;        // Resets random request for new epoch.
+
 		firstStageDuration = zooFunctions.firstStageDuration();
 		secondStageDuration = zooFunctions.secondStageDuration();
 		thirdStageDuration = zooFunctions.thirdStageDuration();
@@ -620,11 +647,11 @@ contract NftBattleArena is Ownable, ERC721
 	/// @param beneficiary - address of recipient.
 	function liquidateVotingPosition(uint256 votingPositionId, address beneficiary) public
 	{
-		require(getCurrentStage() == Stage.FirstStage, "Wrong stage!");                   // Requires to be at first stage.
+		uint256 stakingPositionId = votingPositions[votingPositionId].stakingPositionId;  // Gets id of staker position from this voting position.
+		require(getCurrentStage() == Stage.FirstStage || stakingPositions[stakingPositionId].endDate != 0, "Wrong stage!"); // Requires correct stage or nft to be unstaked.
 		require(ownerOf(votingPositionId) == msg.sender);                                 // Requires to be owner of position.
 		require(votingPositions[votingPositionId].endEpoch == 0);                         // Requires to be not liquidated yet.
 
-		uint256 stakingPositionId = votingPositions[votingPositionId].stakingPositionId;  // Gets id of staker position from this voting position.
 		uint256 daiNumber = votingPositions[votingPositionId].daiInvested;
 		uint256 yTokens = votingPositions[votingPositionId].yTokensNumber;
 		uint256 zooReturned = votingPositions[votingPositionId].zooInvested * 995 / 1000; // Calculates amount of zoo to withdraw.
@@ -634,10 +661,13 @@ contract NftBattleArena is Ownable, ERC721
 		updateInfo(stakingPositionId);
 
 		uint256 lastEpoch = computeLastEpoch(votingPositionId);
-		for (uint256 i = votingPositions[votingPositionId].startEpoch; i < lastEpoch; i++)
-		{
-			yTokens = yTokens.sub(daiNumber.div(stakingPositions[stakingPositionId].rewards[i].pricePerShareCoef));
-		}
+			for (uint256 i = votingPositions[votingPositionId].startEpoch; i < lastEpoch; i++)
+			{
+				if (stakingPositions[stakingPositionId].rewards[i].pricePerShareCoef != 0)
+				{
+					yTokens = yTokens.sub(daiNumber.div(stakingPositions[stakingPositionId].rewards[i].pricePerShareCoef));
+				}
+			}
 
 		vault.withdraw(yTokens, beneficiary);
 		zoo.transfer(beneficiary, zooReturned);                                           // Transfers zoo to beneficiary.
@@ -647,14 +677,15 @@ contract NftBattleArena is Ownable, ERC721
 		votingPositions[votingPositionId].endDate = block.timestamp;
 
 		stakingPositions[stakingPositionId].rewards[currentEpoch].votes -= votingPositions[votingPositionId].votes;
-		if (stakingPositions[stakingPositionId].rewards[currentEpoch].votes == 0)
+		if (stakingPositions[stakingPositionId].rewards[currentEpoch].votes == 0 && stakingPositions[stakingPositionId].endDate == 0)
 		{
 			for(uint256 i = 0; i < stakerPositions.length; i++)
 			{
 				if (stakerPositions[i] == stakingPositionId)
 				{
 					(stakerPositions[i], stakerPositions[numberOfNftsWithNonZeroVotes - 1]) = (stakerPositions[numberOfNftsWithNonZeroVotes - 1], stakerPositions[i]);
-					numberOfNftsWithNonZeroVotes--;
+					numberOfNftsWithNonZeroVotes = numberOfNftsWithNonZeroVotes.sub(1);
+					stakingPositions[stakingPositionId].lastUpdateEpoch = currentEpoch;
 					break;
 				}
 			}
@@ -760,7 +791,7 @@ contract NftBattleArena is Ownable, ERC721
 		require(getCurrentStage() == Stage.SecondStage, "Wrong stage!");            // Requires to be at second stage of battle epoch.
 		require(typeOfPositions[votingPositionId] == PositionType.VoterPosition, "Wrong position type"); // Requires to be voter position type.
 		(uint reward,,,,) = getPendingVoterReward(votingPositionId);
-		require(reward == 0, "Reward must be claimed");                             // Requires to claim reward before recompute.
+		require(reward == 0, "err1");                             // Requires to claim reward before recompute.
 
 		uint256 stakingPositionId = votingPositions[votingPositionId].stakingPositionId;
 		updateInfo(stakingPositionId);
@@ -768,7 +799,7 @@ contract NftBattleArena is Ownable, ERC721
 		uint256 newVotes = zooFunctions.computeVotesByDai(daiNumber);               // Recomputes dai to votes.
 		uint256 votes = votingPositions[votingPositionId].votes;                    // Gets amount of votes from voting position.
 
-		require(newVotes > votes, "recompute to lower value");                      // Requires for new votes amount to be bigger than before.
+		require(newVotes > votes, "err1");                      // Requires for new votes amount to be bigger than before.
 
 		votingPositions[votingPositionId].daiVotes = newVotes;                      // Records new votes amount from dai.
 		votingPositions[votingPositionId].votes = newVotes;                         // Records new votes amount total.
@@ -783,11 +814,11 @@ contract NftBattleArena is Ownable, ERC721
 	{
 		require(getCurrentStage() == Stage.FourthStage, "Wrong stage!");            // Requires to be at 4th stage.
 		(uint reward,,,,) = getPendingVoterReward(votingPositionId);
-		require(reward == 0, "Reward must be claimed");                             // Requires to claim reward before recompute.
+		require(reward == 0, "err1");                             // Requires to claim reward before recompute.
 		uint256 zooNumber = votingPositions[votingPositionId].zooInvested;          // Gets amount of zoo invested from voting position.
 		uint256 newZooVotes = zooFunctions.computeVotesByZoo(zooNumber);            // Recomputes zoo to votes.
 		uint256 oldZooVotes = votingPositions[votingPositionId].votes.sub(votingPositions[votingPositionId].daiVotes);
-		require(newZooVotes > oldZooVotes, "recompute to lower value");             // Requires for new votes amount to be bigger than before.
+		require(newZooVotes > oldZooVotes, "err1");             // Requires for new votes amount to be bigger than before.
 
 		uint256 stakingPositionId = votingPositions[votingPositionId].stakingPositionId;
 		updateInfo(stakingPositionId);

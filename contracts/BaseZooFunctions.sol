@@ -18,35 +18,51 @@ contract BaseZooFunctions is Ownable, VRFConsumerBase
 
 	constructor (address _vrfCoordinator, address _link) VRFConsumerBase(_vrfCoordinator, _link) 
 	{
-		chainLinkfee = 0.1 * 10 ** 18;
+		chainLinkFee = 0.1 * 10 ** 18;
 		keyHash = 0x6c3699283bda56ad74f6b855546325b68d482e983852a7a82979cc4807b641f4;
 	}
 
-	uint256 internal chainLinkfee;
+	uint256 internal chainLinkFee;
 	bytes32 internal keyHash;
 
-	uint256 public randomResult;  // Random number from chainlink.
+	uint256 public randomResult;  // Random number for battles.
 
-	uint256 public firstStageDuration = 1 days;      	//todo:change time //3 days;    // Duration of first stage(stake).
-	uint256 public secondStageDuration = 1 days;      	//todo:change time //7 days;    // Duration of second stage(DAI).
-	uint256 public thirdStageDuration = 1 days;       	//todo:change time //2 days;    // Duration of third stage(Pair).
-	uint256 public fourthStageDuration = 1 days;       	//todo:change time //5 days;    // Duration fourth stage(ZOO).
-	uint256 public fifthStageDuration = 1 days;        	//todo:change time //2 days;    // Duration of fifth stage(Winner).
+	uint256 public firstStageDuration = 20 minutes;// hours;        //todo:change time //3 days;    // Duration of first stage(stake).
+	uint256 public secondStageDuration = 20 minutes;// hours;       //todo:change time //7 days;    // Duration of second stage(DAI).
+	uint256 public thirdStageDuration = 20 minutes;// hours;        //todo:change time //2 days;    // Duration of third stage(Pair).
+	uint256 public fourthStageDuration = 20 minutes;// hours;       //todo:change time //5 days;    // Duration fourth stage(ZOO).
+	uint256 public fifthStageDuration = 20 minutes;// hours;        //todo:change time //2 days;    // Duration of fifth stage(Winner).
 
 	/// @notice Function for setting address of NftbattleArena contract.
 	/// @param nftBattleArena - address of nftBattleArena contract.
 	function init(address nftBattleArena) external onlyOwner {
 		battles = NftBattleArena(nftBattleArena);
+
+		transferOwnership(nftBattleArena); // battles needs ownership for now.
+	}
+
+	/// @notice Function to reset random number from battles.
+	function resetRandom() external onlyOwner
+	{
+		randomResult = 0;
 	}
 
 	function fulfillRandomness(bytes32 requestId, uint256 randomness) internal override 
 	{
-		randomResult = randomness;
+		randomResult = randomness;                      // Random number from chainlink.
 	}
 
-	function getRandomNumber() public returns (bytes32 requestId) {
-		require(LINK.balanceOf(address(this)) >= chainLinkfee, "Not enough LINK");
-		return requestRandomness(keyHash, chainLinkfee);
+	/// @notice Function to request random from chainlink or blockhash.
+	function getRandomNumber() external onlyOwner {
+		// require(LINK.balanceOf(address(this)) >= chainLinkFee, "Not enough LINK");
+		if (LINK.balanceOf(address(this)) < chainLinkFee)
+		{
+			randomResult = uint256(keccak256(abi.encodePacked(blockhash(block.number - 1)))); // + battles.currentEpoch();
+		}
+		else
+		{
+			requestRandomness(keyHash, chainLinkFee);
+		}
 	}
 
 	/// @notice Function for choosing winner in battle.
@@ -60,15 +76,6 @@ contract BaseZooFunctions is Ownable, VRFConsumerBase
 		return mod < votesForA;
 	}
 
-/*
-	/// @notice Function for generating random number.
-	/// @param seed - multiplier for random number.
-	/// @return random - generated random number.
-	function getRandomNumber(uint256 seed) external view returns (uint256 random) {
-
-		random = uint256(keccak256(abi.encodePacked(uint(blockhash(block.number - 1)) + seed))); // Get random number.
-	}
-*/
 	/// @notice Function for calculating voting with Dai in vote battles.
 	/// @param amount - amount of dai used for vote.
 	/// @return votes - final amount of votes after calculating.

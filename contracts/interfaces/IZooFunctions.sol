@@ -7,6 +7,8 @@ interface IZooFunctions {
 
 	function randomResult() external view returns(uint256 random);
 
+	function resetRandom() external;
+
 	/// @notice Function for choosing winner in battle.
 	/// @param votesForA - amount of votes for 1st candidate.
 	/// @param votesForB - amount of votes for 2nd candidate.
@@ -15,7 +17,7 @@ interface IZooFunctions {
 	function decideWins(uint256 votesForA, uint256 votesForB, uint256 random) external view returns (bool);
 
 	/// @notice Function for generating random number.
-	function getRandomNumber() external view returns (bytes32 requestId);
+	function getRandomNumber();
 
 	/// @notice Function for calculating voting with Dai in vote battles.
 	/// @param amount - amount of dai used for vote.
