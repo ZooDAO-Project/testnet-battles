@@ -20,7 +20,7 @@
 * This contract holds link tokens for chainlinkVRF and implement random for battles with\or without chainlinkVRF.
 
 ##### ZooGovernance connects battles with functions contract.
-* Allows to connect battles with new functions contract to change change some play rules if needed.
+* Allows to connect battles with new functions contract to change some play rules if needed.
 
 ##### Dai from votes are staked for % in Yearn, and rewards for winners are generated from this income.
 
