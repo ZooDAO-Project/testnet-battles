@@ -1,5 +1,5 @@
 # ZooDAO 
-## StakingPool
+## Nft battles arena
 
 #### This repository contains contracts associated with Nft battles of the ZooDAO project, where the NftBattleArena is the main battles contract.
 
